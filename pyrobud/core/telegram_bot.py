@@ -28,7 +28,7 @@ TgEventHandler = Callable[[EventType], Coroutine[Any, Any, None]]
 class TelegramBot(MixinBase):
     # Initialized during instantiation
     tg_config: TelegramConfig
-    _mevent_handlers: MutableMapping[str, Tuple[TgEventHandler, EventType]]
+    _mevent_handlers: MutableMapping[str, Tuple[TgEventHandler, Any]]
     loaded: bool
 
     # Initialized during startup
@@ -72,7 +72,7 @@ class TelegramBot(MixinBase):
         # Load prefix
         self.prefix = await self.db.get("prefix", self.config["bot"]["default_prefix"])
 
-        # Register core command handler
+        # Register core command handler with outgoing filter
         self.client.add_event_handler(
             self.on_command,
             tg.events.NewMessage(outgoing=True, func=self.command_predicate),
@@ -95,26 +95,22 @@ class TelegramBot(MixinBase):
         # Get info
         user = await self.client.get_me()
         if not isinstance(user, tg.types.User):
-            raise TypeError("Missing full self user information")
+            raise TypeError("Missing or invalid user")
         self.user = user
-        # noinspection PyTypeChecker
         self.uid = user.id
 
         # Set Sentry username if enabled
         if self.config["bot"]["report_username"]:
-            with sentry_sdk.configure_scope() as scope:
-                scope.set_user({"username": self.user.username})
+            sentry_sdk.set_user({"username": self.user.username})
+
+        # Catch up on missed events
+        await self.client.catch_up()
 
         # Record start time and dispatch start event
         self.start_time_us = util.time.usec()
         await self.dispatch_event("start", self.start_time_us)
 
         self.log.info("Bot is ready")
-
-        # Catch up on missed events now that handlers have been registered
-        self.log.info("Catching up on missed events")
-        await self.client.catch_up()
-        self.log.info("Finished catching up")
 
         # Dispatch final late start event
         await self.dispatch_event("started")
@@ -173,10 +169,14 @@ class TelegramBot(MixinBase):
             text = text.replace(api_id, "[REDACTED]")
         if api_hash in text:
             text = text.replace(api_hash, "[REDACTED]")
-        if self.user.phone is not None and self.user.phone in text:
+        if self.user.phone and self.user.phone in text:
             text = text.replace(self.user.phone, "[REDACTED]")
 
         return text
+
+    def conversation(self: "Bot", target: Union[str, int]) -> Any:
+        """Create a conversation context manager for the given target."""
+        return self.client.conversation(target)
 
     # Flexible response function with filtering, truncation, redaction, etc.
     async def respond(
@@ -227,7 +227,9 @@ class TelegramBot(MixinBase):
                 return await response.edit(text=text, **kwargs)
 
             # Repost since we haven't done so yet
-            response = await msg.respond(text, reply_to=msg.reply_to_msg_id, **kwargs)
+            response = await msg.respond(
+                text, reply_to=msg.reply_to_msg_id, **kwargs
+            )
             await msg.delete()
             return response
 

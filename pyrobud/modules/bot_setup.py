@@ -111,7 +111,7 @@ Please read the rules _before_ participating.
             Exchange("/disconnect", response="disconnect"),
         ]
 
-    async def promote_bot(self, chat: tg.types.InputPeerChannel, username: str) -> None:
+    async def promote_bot(self, chat: tg.custom.Message, username: str) -> None:
         rights = tg.tl.types.ChatAdminRights(
             delete_messages=True, ban_users=True, invite_users=True, pin_messages=True
         )
@@ -144,13 +144,18 @@ Please read the rules _before_ participating.
         if not ctx.msg.is_group:
             return "__This feature can only be used in groups.__"
 
-        parse_results = self.parse_config(ctx.msg.chat_id, input_cfg)
+        input_chat = await ctx.msg.get_input_chat()
+        if not isinstance(input_chat, tg.types.InputPeerChannel):
+            return "__This feature can only be used in channels and supergroups.__"
+
+        chat_id = ctx.msg.chat_id
+        parse_results = self.parse_config(chat_id, input_cfg)
         if isinstance(parse_results, str):
             # A string return value means an error occurred, so propagate it
             return parse_results
 
         target, rule_str, button_str, parsed_cfg = parse_results
-        exchanges = self.get_exchanges(ctx.msg.chat_id, rule_str, button_str)
+        exchanges = self.get_exchanges(chat_id, rule_str, button_str)
         formatted_cfg = tomlkit.dumps(parsed_cfg)
         if formatted_cfg:
             settings_used = f"\n```{formatted_cfg}```"
@@ -162,15 +167,14 @@ Please read the rules _before_ participating.
         status_header = f"Setting up @{target} via PM connection..."
         await ctx.respond(status_header)
 
-        input_chat = await ctx.msg.get_input_chat()
-        if isinstance(input_chat, tg.types.InputPeerChannel):
-            try:
-                await self.promote_bot(input_chat, target)
-            except Exception as e:
-                status_header += (
-                    f"\n**WARNING:** Unable to promote @{target}: `{str(e)}`"
-                )
-                await ctx.respond(status_header)
+        chat = await ctx.msg.get_chat()
+        try:
+            await self.promote_bot(chat, target)
+        except Exception as e:
+            status_header += (
+                f"\n**WARNING:** Unable to promote @{target}: `{str(e)}`"
+            )
+            await ctx.respond(status_header)
 
         async with self.bot.client.conversation(target) as conv:
 
@@ -196,8 +200,9 @@ Commands issued:
 
                 # Wait for the rate-limit, the bot's response, and the send
                 try:
-                    reply_task = self.bot.loop.create_task(reply_and_ack())
-                    send_task = self.bot.loop.create_task(ctx.respond(status))
+                    loop = asyncio.get_running_loop()
+                    reply_task = loop.create_task(reply_and_ack())
+                    send_task = loop.create_task(ctx.respond(status))
 
                     # pylint: disable=unused-variable
                     done, pending = await asyncio.wait(
@@ -221,7 +226,7 @@ Commands issued:
 
 {status_body}
 
-Last response: "{msg.text}"
+Last response: "{msg.raw_text}"
 """
 
         after = datetime.now()

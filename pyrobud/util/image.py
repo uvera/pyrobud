@@ -37,11 +37,11 @@ async def img_to_sticker(src: FileLike, formats: FormatMap) -> FormatMap:
         if sz[0] > sz[1]:
             w_ratio = target / float(sz[0])
             h_size = int(float(sz[1]) * float(w_ratio))
-            im = im.resize((target, h_size), Image.LANCZOS)
+            im = im.resize((target, h_size), Image.Resampling.LANCZOS)
         else:
             h_ratio = target / float(sz[1])
             w_size = int(float(sz[0]) * float(h_ratio))
-            im = im.resize((w_size, target), Image.LANCZOS)
+            im = im.resize((w_size, target), Image.Resampling.LANCZOS)
 
         for fmt, dest in formats.items():
             im.save(dest, fmt)

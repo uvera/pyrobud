@@ -100,9 +100,9 @@ class Context:
         # Response message to be filled later
         self.response = None
         self.response_mode = None
-        # Single argument string (unparsed, i.e. complete with Markdown formatting symbols)
+        # Single argument string (with Markdown formatting symbols if available)
         self.input = self.msg.text[self.cmd_len :]
-        # Single argument string (parsed, i.e. plain text)
+        # Single argument string (plain text)
         self.plain_input = self.msg.raw_text[self.cmd_len :]
 
     # Lazily resolve expensive fields

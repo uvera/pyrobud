@@ -45,7 +45,7 @@ class ModuleExtender(MixinBase):
         del self.modules[cls.name]
 
     def _load_all_from_metamod(
-        self: "Bot", submodules: Iterable[ModuleType], *, comment: str = None
+        self: "Bot", submodules: Iterable[ModuleType], *, comment: Optional[str] = None
     ) -> None:
         for module_mod in submodules:
             for sym in dir(module_mod):

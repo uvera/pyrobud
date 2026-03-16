@@ -1,6 +1,6 @@
 from typing import Any, Iterable, Mapping, Optional
 
-import emoji.unicode_codes
+import emoji
 
 ITEM_SEPARATOR = "\n    • "
 
@@ -34,4 +34,4 @@ def join_map(
 
 
 def has_emoji(text: str) -> bool:
-    return any(c in emoji.unicode_codes.UNICODE_EMOJI for c in text)
+    return any(emoji.is_emoji(c) for c in text)

@@ -75,8 +75,9 @@ class CommandDispatcher(MixinBase):
             self.unregister_command(cmd)
 
     def command_predicate(self: "Bot", event: tg.events.NewMessage.Event) -> bool:
-        if event.raw_text.startswith(self.prefix):
-            parts = event.raw_text.split()
+        text = event.raw_text
+        if text and text.startswith(self.prefix):
+            parts = text.split()
             parts[0] = parts[0][len(self.prefix) :]
 
             event.segments = parts
@@ -84,27 +85,27 @@ class CommandDispatcher(MixinBase):
 
         return False
 
-    async def on_command(self: "Bot", msg: tg.events.NewMessage.Event) -> None:
+    async def on_command(self: "Bot", event: tg.events.NewMessage.Event) -> None:
         cmd = None
 
         # Don't process commands from inline bots
-        if msg.via_bot_id:
+        if event.via_bot_id:
             return
 
         try:
             # Attempt to get command info
             try:
-                cmd = self.commands[msg.segments[0]]
+                cmd = self.commands[event.segments[0]]
             except KeyError:
                 return
 
             # Construct invocation context
             ctx = command.Context(
                 self,
-                msg,
-                msg.message,
-                msg.segments,
-                len(self.prefix) + len(msg.segments[0]) + 1,
+                event,
+                event.message,
+                event.segments,
+                len(self.prefix) + len(event.segments[0]) + 1,
             )
 
             # Ensure specified argument needs are met
@@ -112,10 +113,10 @@ class CommandDispatcher(MixinBase):
                 err_base = f"⚠️ Missing parameters: {cmd.usage}"
 
                 if cmd.usage_reply:
-                    if msg.is_reply:
-                        reply_msg = await msg.get_reply_message()
-                        if reply_msg.text:
-                            ctx.input = reply_msg.text
+                    if event.is_reply:
+                        reply_msg = await event.get_reply_message()
+                        if reply_msg.raw_text:
+                            ctx.input = reply_msg.raw_text
                             ctx.plain_input = reply_msg.raw_text
                         elif not cmd.usage_optional:
                             await ctx.respond(
@@ -146,12 +147,12 @@ class CommandDispatcher(MixinBase):
                     f"⚠️ Error executing command:\n```{util.error.format_exception(e)}```"
                 )
 
-            await self.dispatch_event("command", cmd, msg)
+            await self.dispatch_event("command", cmd, event)
         except Exception as e:
             if cmd is not None:
                 cmd.module.log.error("Error in command handler", exc_info=e)
 
             await self.respond(
-                msg.message,
+                event.message,
                 f"⚠️ Error in command handler:\n```{util.error.format_exception(e)}```",
             )

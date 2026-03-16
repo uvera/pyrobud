@@ -3,19 +3,16 @@ import logging
 import sys
 from pathlib import Path
 
-import aiorun
 import tomlkit
 
 from . import DEFAULT_CONFIG_PATH, util
 from .core import Bot
 
 log = logging.getLogger("launch")
-# Silence aiorun's overly verbose logger
-aiorun.logger.disabled = True
 
 
-def setup_asyncio(config: util.config.Config) -> asyncio.AbstractEventLoop:
-    """Returns a new asyncio event loop with settings from the given config."""
+def setup_asyncio(config: util.config.Config) -> None:
+    """Configures asyncio settings from the given config."""
 
     asyncio_config: util.config.AsyncIOConfig = config["asyncio"]
 
@@ -34,20 +31,13 @@ def setup_asyncio(config: util.config.Config) -> asyncio.AbstractEventLoop:
         except ImportError:
             pass
 
-    loop = asyncio.new_event_loop()
-
     if asyncio_config["debug"]:
         log.info("Enabling asyncio debug mode")
-        loop.set_debug(True)
-
-    return loop
+        asyncio.get_event_loop().set_debug(True)
 
 
 async def _upgrade(config: util.config.Config, config_path: str) -> None:
-    try:
-        await util.config.upgrade(config, config_path)
-    finally:
-        asyncio.get_event_loop().stop()
+    await util.config.upgrade(config, config_path)
 
 
 def main(*, config_path: str = DEFAULT_CONFIG_PATH) -> None:
@@ -63,13 +53,12 @@ def main(*, config_path: str = DEFAULT_CONFIG_PATH) -> None:
         log.info("Initializing Sentry error reporting")
         util.sentry.init()
 
-    # Use preliminary loop for config upgrading
-    loop = asyncio.get_event_loop()
-    aiorun.run(_upgrade(config, config_path), stop_on_unhandled_errors=True, loop=loop)
-    loop.close()
+    # Setup asyncio (including uvloop) before any asyncio.run() calls
+    setup_asyncio(config)
 
-    loop = setup_asyncio(config)
+    # Run config upgrade
+    asyncio.run(_upgrade(config, config_path))
 
     # Start bot
     log.info("Initializing bot")
-    aiorun.run(Bot.create_and_run(config, loop=loop), loop=loop)
+    asyncio.run(Bot.create_and_run(config))

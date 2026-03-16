@@ -72,15 +72,18 @@ class StickerModule(module.Module):
                     # Wait for both the rate-limit and the bot's response
                     try:
                         done: Set[asyncio.Future]
-                        resp_task = self.bot.loop.create_task(reply_and_ack())
-                        done, _ = await asyncio.wait((resp_task, asyncio.sleep(0.25)))
+                        loop = asyncio.get_running_loop()
+                        resp_task = loop.create_task(reply_and_ack())
+                        done, _ = await asyncio.wait(
+                            (resp_task, asyncio.sleep(0.25))
+                        )
                         # Raise exceptions encountered in coroutines
                         for fut in done:
                             fut.result()
 
                         response = resp_task.result()
                         if expected_resp and expected_resp not in response.raw_text:
-                            return False, f'Sticker creation failed: "{response.text}"'
+                            return False, f'Sticker creation failed: "{response.raw_text}"'
                     except asyncio.TimeoutError:
                         after = datetime.now()
                         delta_seconds = int((after - before).total_seconds())

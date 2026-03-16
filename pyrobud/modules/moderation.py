@@ -64,7 +64,8 @@ class ModerationModule(module.Module):
 
         if ctx.msg.is_reply:
             reply_msg = await ctx.msg.get_reply_message()
-            user_ids.append(reply_msg.from_id)
+            if reply_msg.from_id:
+                user_ids.append(reply_msg.from_id)
 
         if not user_ids:
             return "__Provide a list of user IDs to ban, or reply to a user's message to ban them.__"
@@ -90,8 +91,11 @@ class ModerationModule(module.Module):
                 continue
 
             if not isinstance(user, tg.types.User):
-                ent_type = type(user).__name__.lower()
-                lines.append(f"Skipped {ent_type} object (`{user_id}`)")
+                if single_user:
+                    lines.append(f"__Unable to find user__ `{user_id}`.")
+                else:
+                    lines.append(f"Unable to find user `{user_id}`")
+
                 continue
 
             user_spec = f"{util.tg.mention_user(user)} (`{user_id}`)"
@@ -100,11 +104,8 @@ class ModerationModule(module.Module):
             else:
                 lines.append(user_spec)
 
-            rights = tg.tl.types.ChatBannedRights(until_date=None, view_messages=True)
-            ban_request = tg.tl.functions.channels.EditBannedRequest(chat, user, rights)
-
             try:
-                await self.bot.client(ban_request)
+                await self.bot.client.kick_participant(chat, user)
             except tg.errors.ChatAdminRequiredError:
                 return "__I need permission to ban users in this chat.__"
 
@@ -115,10 +116,10 @@ class ModerationModule(module.Module):
     @command.usage("[target chat ID/username/...?]", optional=True)
     async def cmd_prunemembers(self, ctx: command.Context) -> str:
         if ctx.input:
-            chat = await self.bot.client.get_entity(ctx.input)
-            if isinstance(chat, tg.types.User):
-                return f"`{ctx.input}` __references a user, not a chat.__"
-
+            try:
+                chat = await self.bot.client.get_entity(ctx.input)
+            except ValueError:
+                return f"`{ctx.input}` __could not be resolved.__"
             _chat_name = f" from **{chat.title}**"
             _chat_name2 = f" in **{chat.title}**"
         else:

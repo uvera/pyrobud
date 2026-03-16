@@ -83,8 +83,9 @@ class EventDispatcher(MixinBase):
         if not listeners:
             return
 
+        loop = asyncio.get_running_loop()
         for lst in listeners:
-            task = self.loop.create_task(lst.func(*args, **kwargs))
+            task = loop.create_task(lst.func(*args, **kwargs))
             tasks.add(task)
 
         self.log.debug("Dispatching event '%s' with data %s", event, args)

@@ -1,7 +1,7 @@
 import asyncio
 import os
 from datetime import datetime
-from typing import Any, Optional, Tuple, Type, Union
+from typing import Any, Optional, Tuple, Union
 
 import bprint
 import telethon as tg
@@ -70,9 +70,9 @@ def pretty_print_entity(entity: tg.tl.TLObject) -> str:
 async def download_file(
     ctx: command.Context,
     msg: tg.custom.Message,
-    dest: Union[tg.hints.FileLike, os.PathLike, Type[bytes]] = bytes,
+    dest: tg.hints.FileLike = bytes,
     file_type: str = "file",
-) -> Any:
+) -> tg.hints.FileLike:
     """Downloads the file embedded in the given message with live progress updates."""
 
     last_update_time = None
@@ -87,7 +87,7 @@ async def download_file(
         percent = int((current_bytes / total_bytes) * 100)
         now = datetime.now()
         if last_update_time is None or (now - last_update_time).total_seconds() >= 5:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             loop.create_task(
                 ctx.respond(f"Downloading {file_type}... {percent}% complete")
             )
@@ -122,8 +122,8 @@ async def get_text_input(
         if reply_msg.document:
             bin_data = await download_file(ctx, reply_msg)
             text = bin_data.decode(errors="replace")
-        elif reply_msg.text:
-            text = filter_code_block(reply_msg.text)
+        elif reply_msg.raw_text:
+            text = filter_code_block(reply_msg.raw_text)
         else:
             return (
                 False,

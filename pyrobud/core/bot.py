@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Optional
 
 import aiohttp
 
@@ -28,7 +27,7 @@ class Bot(
     def __init__(self, config: Config):
         self.config = config
         self.log = logging.getLogger("bot")
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.get_running_loop()
         self.stopping = False
 
         # Initialize mixins
@@ -38,21 +37,17 @@ class Bot(
         self.http = aiohttp.ClientSession()
 
     @classmethod
-    async def create_and_run(
-        cls, config: Config, *, loop: Optional[asyncio.AbstractEventLoop] = None
-    ) -> "Bot":
+    async def create_and_run(cls, config: Config) -> "Bot":
         bot = None
-
-        if loop:
-            asyncio.set_event_loop(loop)
 
         try:
             bot = cls(config)
             await bot.run()
             return bot
         finally:
-            if bot is None or (bot is not None and not bot.stopping):
-                asyncio.get_event_loop().stop()
+            if bot is not None:
+                loop = asyncio.get_running_loop()
+                loop.stop()
 
     async def stop(self) -> None:
         self.stopping = True

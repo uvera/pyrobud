@@ -15,23 +15,24 @@ class SnippetsModule(module.Module):
         self.db = self.bot.get_db("snippets")
 
     def snip_repl(self, m: Match[str]) -> str:
-        fut = asyncio.run_coroutine_threadsafe(self.db.get(m.group(1)), self.bot.loop)
+        loop = asyncio.get_running_loop()
+        fut = asyncio.run_coroutine_threadsafe(self.db.get(m.group(1)), loop)
         replacement: Optional[str] = fut.result()
         if replacement is not None:
             asyncio.run_coroutine_threadsafe(
-                self.bot.log_stat("replaced"), self.bot.loop
+                self.bot.log_stat("replaced"), loop
             )
             return replacement
 
         return m.group(0)
 
-    async def on_message(self, msg: tg.events.NewMessage.Event) -> None:
+    async def on_message(self, msg: tg.custom.Message) -> None:
         # Don't process snippets from inline bots
         if msg.via_bot_id:
             return
 
-        if msg.out and msg.text:
-            orig_text = msg.text
+        if msg.out and msg.raw_text:
+            orig_text = msg.raw_text
 
             text = await util.run_sync(
                 lambda: re.sub(r"/([^ ]+?)/", self.snip_repl, orig_text)
@@ -49,7 +50,7 @@ class SnippetsModule(module.Module):
         content = None
         if ctx.msg.is_reply:
             reply_msg = await ctx.msg.get_reply_message()
-            content = reply_msg.text
+            content = reply_msg.raw_text
 
         if not content:
             if len(ctx.args) > 1:

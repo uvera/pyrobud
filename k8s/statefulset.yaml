@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pyrobud
+  namespace: pyrobud
+  labels:
+    app: pyrobud
+spec:
+  serviceName: pyrobud
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pyrobud
+  template:
+    metadata:
+      labels:
+        app: pyrobud
+    spec:
+      terminationGracePeriodSeconds: 10
+      initContainers:
+        # Copy config from secret to the writable data volume.
+        # The bot modifies config.toml in-place during upgrades,
+        # so it can't be a read-only secret mount.
+        - name: init-config
+          image: busybox:1.37
+          command: ["sh", "-c"]
+          args:
+            - |
+              if [ ! -f /data/config.toml ]; then
+                echo "First run — copying config from secret..."
+                cp /secret/config.toml /data/config.toml
+              else
+                echo "Config already exists, skipping copy."
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config-secret
+              mountPath: /secret
+              readOnly: true
+      containers:
+        - name: pyrobud
+          image: pyrobud:latest
+          imagePullPolicy: Never
+          stdin: true
+          tty: true
+          workingDir: /data
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config-secret
+          secret:
+            secretName: pyrobud-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

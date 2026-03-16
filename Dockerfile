@@ -1,11 +1,11 @@
 # Build Go programs (only corrupter at the moment)
 FROM golang:1-alpine AS go-build
 RUN apk add --no-cache git
-RUN go get github.com/r00tman/corrupter
+RUN go install github.com/r00tman/corrupter@latest
 
 
 # Build Python package and dependencies
-FROM python:3-alpine AS python-build
+FROM python:3.12-alpine AS python-build
 RUN apk add --no-cache \
         git \
         libffi-dev \
@@ -39,9 +39,9 @@ RUN pip install uvloop
 
 
 # Package everything
-FROM python:3-alpine AS final
+FROM python:3.12-alpine AS final
 # Install optional native tools (for full functionality)
-RUN apk add --no-cache neofetch
+RUN apk add --no-cache fastfetch
 # Install native dependencies
 RUN apk add --no-cache \
         libffi \

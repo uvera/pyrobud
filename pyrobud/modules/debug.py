@@ -24,7 +24,7 @@ class DebugModule(module.Module):
 
         async def _eval() -> Tuple[str, str]:
             # Message sending helper for convenience
-            async def send(*args: Any, **kwargs: Any) -> tg.custom.Message:
+            async def send(*args: Any, **kwargs: Any) -> Any:
                 return await ctx.msg.respond(*args, **kwargs)
 
             # Print wrapper to capture output
@@ -40,7 +40,6 @@ class DebugModule(module.Module):
                 "self": self,
                 "ctx": ctx,
                 "bot": self.bot,
-                "loop": self.bot.loop,
                 "client": self.bot.client,
                 "commands": self.bot.commands,
                 "listeners": self.bot.listeners,
@@ -135,7 +134,7 @@ Time: {el_str}"""
             return "__Reply to a message to get the text of.__"
 
         reply_msg = await ctx.msg.get_reply_message()
-        await ctx.respond(reply_msg.text, parse_mode=None)
+        await ctx.respond(reply_msg.raw_text, parse_mode=None)
         return None
 
     @command.desc("Send text")
@@ -161,19 +160,11 @@ Time: {el_str}"""
     )
     @command.alias("einfo")
     async def cmd_entity(self, ctx: command.Context) -> str:
-        entity_ref: tg.hints.EntitiesLike = ctx.input
+        entity_ref = ctx.input
 
         if ctx.input == "chat":
             entity = await ctx.msg.get_chat()
         elif ctx.input:
-            if ctx.input.isdigit():
-                try:
-                    entity_ref = int(ctx.input)
-                except ValueError:
-                    return f"Unable to parse `{entity_ref}` as ID!"
-            else:
-                entity_ref = ctx.input
-
             try:
                 entity = await self.bot.client.get_entity(entity_ref)
             except ValueError as e:
@@ -191,8 +182,9 @@ Time: {el_str}"""
     async def cmd_id(self, ctx: command.Context) -> str:
         lines = []
 
-        if ctx.msg.chat_id:
-            lines.append(f"Chat ID: `{ctx.msg.chat_id}`")
+        chat = await ctx.msg.get_chat()
+        if chat:
+            lines.append(f"Chat ID: `{chat.id}`")
 
         lines.append(f"My user ID: `{self.bot.uid}`")
 
@@ -204,25 +196,26 @@ Time: {el_str}"""
             if sender:
                 lines.append(f"Message author ID: `{sender.id}`")
 
-            if reply_msg.forward:
-                if reply_msg.forward.from_id:
+            forward = reply_msg.forward
+            if forward:
+                if forward.from_id:
                     lines.append(
-                        f"Forwarded message author ID: `{reply_msg.forward.from_id}`"
+                        f"Forwarded message author ID: `{forward.from_id}`"
                     )
 
-                if reply_msg.forward.channel_id:
+                if forward.channel_id:
                     lines.append(
-                        f"Forwarded message channel ID: `{reply_msg.forward.channel_id}`"
+                        f"Forwarded message channel ID: `{forward.channel_id}`"
                     )
 
                 f_chat_id = None
-                if hasattr(reply_msg.forward.saved_from_peer, "channel_id"):
-                    f_chat_id = reply_msg.forward.saved_from_peer.channel_id
+                if forward.saved_from_peer:
+                    f_chat_id = forward.saved_from_peer.channel_id
                     lines.append(f"Forwarded message chat ID: `{f_chat_id}`")
 
                 f_msg_id = None
-                if reply_msg.forward.saved_from_msg_id:
-                    f_msg_id = reply_msg.forward.saved_from_msg_id
+                if forward.saved_from_msg_id:
+                    f_msg_id = forward.saved_from_msg_id
                     lines.append(f"Forwarded message original ID: `{f_msg_id}`")
 
                 if f_chat_id is not None and f_msg_id is not None:

@@ -65,9 +65,7 @@ class StatsModule(module.Module):
         stat = "sent" if msg.out else "received"
         await self.bot.log_stat(stat + "_edits")
 
-    async def on_command(
-        self, cmd: command.Command, msg: tg.events.MessageEdited.Event
-    ) -> None:
+    async def on_command(self, cmd: command.Command, msg: tg.custom.Message) -> None:
         await self.bot.log_stat("processed")
 
     async def on_stat_event(self, key: str) -> None:

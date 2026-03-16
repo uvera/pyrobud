@@ -23,7 +23,7 @@ class NetworkModule(module.Module):
 
         return f"Request response time: {after - before:.0f} ms"
 
-    async def on_message(self, msg: tg.events.NewMessage.Event) -> None:
+    async def on_message(self, msg: tg.custom.Message) -> None:
         # Only check Telegram service messages
         if msg.sender_id != 777000:
             return
@@ -86,12 +86,14 @@ class NetworkModule(module.Module):
         if not link:
             reply_msg = await ctx.msg.get_reply_message()
 
+            # Look for URL entities in the message
             for entity, text in reply_msg.get_entities_text():
                 if isinstance(
                     entity,
                     (tg.tl.types.MessageEntityUrl, tg.tl.types.MessageEntityTextUrl),
                 ):
-                    link = text
+                    link = entity.url if hasattr(entity, "url") and entity.url else text
+                    break
 
         if not link:
             return "__That message doesn't contain any links."
