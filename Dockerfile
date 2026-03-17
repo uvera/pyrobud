@@ -1,9 +1,3 @@
-# Build Go programs (only corrupter at the moment)
-FROM golang:1-alpine AS go-build
-RUN apk add --no-cache git
-RUN go install github.com/r00tman/corrupter@latest
-
-
 # Build Python package and dependencies
 FROM python:3.12-alpine AS python-build
 RUN apk add --no-cache \
@@ -64,9 +58,6 @@ RUN chown pyrobud:pyrobud /data
 # Ensure we a volume is mounted even if the user doesn't explicitly specify it,
 # to prevent unintentional data loss
 VOLUME [ "/data" ]
-
-# Copy Go programs
-COPY --from=go-build /go/bin/corrupter /usr/local/bin
 
 # Copy Python venv
 ENV PATH="/opt/venv/bin:$PATH"
