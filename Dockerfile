@@ -39,7 +39,8 @@ RUN apk add --no-cache fastfetch
 # Install native dependencies
 RUN apk add --no-cache \
         libffi \
-        leveldb \
+        libstdc++ \
+        snappy \
         zlib \
         tiff \
         freetype \
@@ -47,6 +48,9 @@ RUN apk add --no-cache \
         libjpeg-turbo \
         lcms2 \
         libwebp
+
+# Copy leveldb shared libs from the build stage to ensure ABI match with plyvel
+COPY --from=python-build /usr/lib/libleveldb.so* /usr/lib/
 
 # Create bot user
 RUN adduser -D pyrobud
