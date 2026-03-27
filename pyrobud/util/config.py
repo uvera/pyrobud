@@ -89,6 +89,14 @@ upgrade_methods = [
     {"version": 9, "asyncio": {"debug": False}},
     {"version": 10, "asyncio": {"use_uvloop": DeleteValue, "disable_uvloop": False}},
     {"version": 11, "bot": {"overflow_mode": "truncate", "overflow_page_limit": 4}},
+    {
+        "version": 12,
+        "bot": {
+            "message_merge": False,
+            "message_merge_delay_ms": 1500,
+            "message_merge_scope": "private",
+        },
+    },
 ]
 
 

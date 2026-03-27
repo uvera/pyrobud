@@ -58,6 +58,11 @@ Note that the official Docker image only supports Linux x86_64. Other operating
 systems and architectures are not supported. However, pull requests contributing
 such support are welcome.
 
+The registry image tracks published releases. To run a **local checkout** (e.g.
+message merge or other changes not on PyPI yet), build it yourself:
+
+`docker build -t pyrobud .` then `docker run --rm -itv "$PWD/data:/data" pyrobud`
+
 ### Using pip
 
 When using pip, it's highly recommended to install everything inside a virtual
@@ -151,6 +156,11 @@ The default prefix (if you haven't changed it in the config) is `.`, so one
 would type `.help` to run the command. All other commands work the same way,
 save for snippet replacements which are used with `/snipname/` anywhere in a
 message.
+
+Optional **consecutive message merge** (`message_merge` in `config.toml`) debounces
+rapid outgoing lines in DMs into a single message. See the comments for
+`message_merge_scope` and `message_merge_delay_ms`; enabling it alongside snippet
+expansion can cause conflicting edits, so prefer one or the other or tune delays.
 
 ## Deployment
 
