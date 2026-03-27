@@ -1,10 +1,12 @@
 import asyncio
 import re
-from typing import ClassVar, Match, Optional
+from typing import ClassVar, Optional
 
 import telethon as tg
 
 from .. import command, module, util
+
+_SNIP_RE = re.compile(r"/([^ ]+?)/")
 
 
 class SnippetsModule(module.Module):
@@ -14,17 +16,22 @@ class SnippetsModule(module.Module):
     async def on_load(self) -> None:
         self.db = self.bot.get_db("snippets")
 
-    def snip_repl(self, m: Match[str]) -> str:
-        loop = asyncio.get_running_loop()
-        fut = asyncio.run_coroutine_threadsafe(self.db.get(m.group(1)), loop)
-        replacement: Optional[str] = fut.result()
-        if replacement is not None:
-            asyncio.run_coroutine_threadsafe(
-                self.bot.log_stat("replaced"), loop
-            )
-            return replacement
-
-        return m.group(0)
+    async def _expand_snippets(self, orig_text: str) -> str:
+        """Replace /name/ tokens using the DB; must run on the event loop (not a thread)."""
+        parts: list[str] = []
+        last_end = 0
+        for m in _SNIP_RE.finditer(orig_text):
+            parts.append(orig_text[last_end : m.start()])
+            key = m.group(1)
+            replacement: Optional[str] = await self.db.get(key)
+            if replacement is not None:
+                await self.bot.log_stat("replaced")
+                parts.append(replacement)
+            else:
+                parts.append(m.group(0))
+            last_end = m.end()
+        parts.append(orig_text[last_end:])
+        return "".join(parts)
 
     async def on_message(self, msg: tg.custom.Message) -> None:
         # Don't process snippets from inline bots
@@ -34,9 +41,7 @@ class SnippetsModule(module.Module):
         if msg.out and msg.raw_text:
             orig_text = msg.raw_text
 
-            text = await util.run_sync(
-                lambda: re.sub(r"/([^ ]+?)/", self.snip_repl, orig_text)
-            )
+            text = await self._expand_snippets(orig_text)
             text = util.tg.truncate(text)
 
             if text != orig_text:
