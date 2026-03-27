@@ -1,0 +1,20 @@
+# Pyrobud for Coolify (or plain docker compose).
+# - Put config.toml on the persistent volume at /data (see config.example.toml).
+# - No HTTP port: disable domain / HTTP health checks in Coolify.
+# - For stock releases without a local build, comment out `build` and use only:
+#     image: kdrag0n/pyrobud:latest
+
+services:
+  pyrobud:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pyrobud:local
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+      - pyrobud-data:/data
+
+volumes:
+  pyrobud-data:
