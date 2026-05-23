@@ -111,6 +111,20 @@ class MessageMergeModule(module.Module):
             return True
         return False
 
+    @staticmethod
+    def _is_reply(msg: tg.custom.Message) -> bool:
+        if getattr(msg, "is_reply", False):
+            return True
+        return bool(getattr(msg, "reply_to", None))
+
+    async def _break_merge_sequence(self, chat_id: int) -> None:
+        lock = self._lock_for(chat_id)
+        async with lock:
+            buf = self._buffers.get(chat_id)
+            if buf:
+                await self._cancel_timer(buf)
+            await self._flush_buffer_unlocked(chat_id)
+
     async def _cancel_timer(self, buf: _MergeBuffer) -> None:
         task = buf.timer_task
         buf.timer_task = None
@@ -193,7 +207,10 @@ class MessageMergeModule(module.Module):
         if not self._merge_enabled():
             return
 
+        chat_id = msg.chat_id
+
         if not self._is_own_outgoing_line(msg):
+            await self._break_merge_sequence(chat_id)
             return
 
         if msg.fwd_from:
@@ -203,20 +220,18 @@ class MessageMergeModule(module.Module):
         if not body:
             return
 
-        chat_id = msg.chat_id
-        lock = self._lock_for(chat_id)
-
         if msg.via_bot_id:
-            async with lock:
-                buf = self._buffers.get(chat_id)
-                if buf:
-                    await self._cancel_timer(buf)
-                await self._flush_buffer_unlocked(chat_id)
+            await self._break_merge_sequence(chat_id)
             return
 
         if not self._scope_allows(msg):
             return
 
+        if self._is_reply(msg):
+            await self._break_merge_sequence(chat_id)
+            return
+
+        lock = self._lock_for(chat_id)
         async with lock:
             text = msg.raw_text
 
